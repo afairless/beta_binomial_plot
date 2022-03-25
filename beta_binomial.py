@@ -9,7 +9,7 @@ import dash
 from dash.dependencies import Input, Output
 
 
-def generate_binomial_data() -> np.ndarray:
+def generate_binomial_data() -> tuple[float, np.ndarray]:
     """
     Generates a sample of binomial data
     """
@@ -27,7 +27,7 @@ def read_beta_priors() -> tuple:
 
 def calculate_beta_param_series() -> list[tuple[int | float]]:
 
-    p, binomial_sample = generate_binomial_data()
+    _, binomial_sample = generate_binomial_data()
     beta_params = read_beta_priors()
     alpha_param_sums = binomial_sample.cumsum() 
     beta_param_sums = range(len(alpha_param_sums)) - alpha_param_sums + 1
@@ -37,7 +37,7 @@ def calculate_beta_param_series() -> list[tuple[int | float]]:
         for i in range(len(binomial_sample))]
     beta_param_series = [beta_params] + beta_param_series
 
-    return p, beta_param_series
+    return beta_param_series
 
 
 def beta_statistical_attributes() -> tuple[np.ndarray, float, int]:
@@ -89,7 +89,7 @@ app.layout = dash.html.Div([
     Output('heading', 'children'),
     Input('interval-component', 'n_intervals'))
 def overall_heading(n_intervals: int):
-    true_beta_mode, beta_param_series = calculate_beta_param_series()
+    beta_param_series = calculate_beta_param_series()
     loop_len = min(n_intervals+1, len(beta_param_series))
     beta_params = beta_param_series[loop_len-1]
     title = f'Alpha = {beta_params[0]}, Beta = {beta_params[1]}'
@@ -101,8 +101,8 @@ def overall_heading(n_intervals: int):
     Input('interval-component', 'n_intervals'))
 def plot_beta_01(n_intervals: int):
 
-    p, binomial_sample = generate_binomial_data()
-    true_beta_mode, beta_param_series = calculate_beta_param_series()
+    true_beta_mode, binomial_sample = generate_binomial_data()
+    beta_param_series = calculate_beta_param_series()
     x, _, _ = beta_statistical_attributes()
 
     layout = go.Layout({
@@ -162,8 +162,8 @@ def plot_beta_01(n_intervals: int):
     Input('interval-component', 'n_intervals'))
 def plot_beta_02(n_intervals: int):
 
-    _, binomial_sample = generate_binomial_data()
-    true_beta_mode, beta_param_series = calculate_beta_param_series()
+    true_beta_mode, binomial_sample = generate_binomial_data()
+    beta_param_series = calculate_beta_param_series()
     loop_len = min(n_intervals+1, len(beta_param_series))
     beta_params = beta_param_series[loop_len-1]
 
