@@ -51,6 +51,8 @@ def calculate_beta_parameter_series(
     return beta_param_series
 
 
+padding_space = "15px"
+
 app = dash.Dash()
 
 # layout from:  https://community.plotly.com/t/two-graphs-side-by-side/5312/2
@@ -81,7 +83,7 @@ app.layout = dash.html.Div([
             className="six columns"),
     ], className="row"),
 
-    #dash.dcc.Input(style={"margin-left": "15px"}),
+    dash.html.Div(style={"padding": padding_space}),
 
     dash.html.Div([
         dash.html.Div(
@@ -106,6 +108,8 @@ app.layout = dash.html.Div([
                 min=1.01, max=500, step=0.01, value=2, placeholder='Beta'), 
             className="four columns"),
         ], className="row"),
+
+    dash.html.Div(style={"padding": padding_space}),
 
     dash.html.Div([
         dash.html.Div(
@@ -142,6 +146,8 @@ app.layout = dash.html.Div([
                 updatemode='drag'), 
             className="four columns"),
         ], className="row"),
+
+    dash.html.Div(style={"padding": padding_space}),
 
     dash.html.Div([dash.html.H1(id='heading', style={'textAlign': 'center'})]),
 
