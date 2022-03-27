@@ -1,6 +1,5 @@
 #! usr/bin/env python3
 
-import json
 import numpy as np
 from scipy.stats import beta
 from scipy.stats import binom
@@ -57,27 +56,93 @@ app = dash.Dash()
 # layout from:  https://community.plotly.com/t/two-graphs-side-by-side/5312/2
 app.layout = dash.html.Div([
 
-    BooleanSwitch(id='pause-toggle', on=True, label='Play Animation'),
-    dash.html.Div(dash.html.P('Animation Update Frequency (sec)')),
-    dash.dcc.Slider(
-        id='update-frequency', min=0.25, max=10, step=0.25, value=1,
-        marks={0.25: '0.25', 0.5: '0.5', 1: '1', 2: '2', 5: '5', 10: '10'}, 
-        tooltip={'placement': 'bottom', 'always_visible': True}, 
-        updatemode='drag'),
-    dash.html.Button(children='Restart', id='interval_reset', n_clicks=0),
-    dash.html.Div(dash.html.P('Binomial proportion / true beta mode')),
-    dash.dcc.Slider(id='binomial_proportion', min=0, max=1, step=0.01, value=0.5, marks=None, tooltip={'placement': 'bottom', 'always_visible': True}, updatemode='drag'),
-    dash.html.Div(dash.html.P('Number of binomially distributed data points')),
-    dash.dcc.Input(id='data_points_n', type='number', min=3, max=1000, step=1, value=100, placeholder='Number of Data Points'),
-    dash.html.Div(dash.html.P('Random seed')),
-    dash.dcc.Input(id='random_state', type='number', min=101, max=1e8, step=1, value=1e4, placeholder='Random Seed'),
-    dash.html.Div(dash.html.P('Beta parameter alpha starting value (prior)')),
-    dash.dcc.Input(id='beta_parameter_alpha', type='number', min=1.01, max=500, step=0.01, value=2, placeholder='Alpha'),
-    dash.html.Div(dash.html.P('Beta parameter beta starting value (prior)')),
-    dash.dcc.Input(id='beta_parameter_beta', type='number', min=1.01, max=500, step=0.01, value=2, placeholder='Beta'),
-    #dash.html.Div(id='ctx'),
-    #dash.dcc.Store(id='memory'),
-    #dash.html.Div(id='st'),
+    dash.html.Div([
+        dash.html.Div(
+            children=dash.html.Button(
+                children='Restart Animation', 
+                id='interval_reset', 
+                n_clicks=0), 
+            className="two columns"),
+        dash.html.Div(
+            children=BooleanSwitch(
+                id='pause-toggle', 
+                on=True, 
+                label='Play Animation'), 
+            className="two columns"),
+        dash.html.Div(
+            children=dash.html.P('Animation Update Frequency (sec)'), 
+            className="two columns"),
+        dash.html.Div(
+            children=dash.dcc.Slider(
+                id='update-frequency', min=0.25, max=10, step=0.25, value=1, 
+                marks={i: str(i) for i in range(1, 11)},
+                tooltip={'placement': 'bottom', 'always_visible': True}, 
+                updatemode='drag'),
+            className="six columns"),
+    ], className="row"),
+
+    #dash.dcc.Input(style={"margin-left": "15px"}),
+
+    dash.html.Div([
+        dash.html.Div(
+            children=dash.html.Div(
+                dash.html.P('Beta parameter alpha starting value (prior)')), 
+            className="four columns"),
+        dash.html.Div(
+            children=dash.html.Div(
+                dash.html.P('Beta parameter beta starting value (prior)')), 
+            className="four columns"),
+        ], className="row"),
+
+    dash.html.Div([
+        dash.html.Div(
+            children=dash.dcc.Input(
+                id='beta_parameter_alpha', type='number', 
+                min=1.01, max=500, step=0.01, value=2, placeholder='Alpha'), 
+            className="four columns"),
+        dash.html.Div(
+            children=dash.dcc.Input(
+                id='beta_parameter_beta', type='number', 
+                min=1.01, max=500, step=0.01, value=2, placeholder='Beta'), 
+            className="four columns"),
+        ], className="row"),
+
+    dash.html.Div([
+        dash.html.Div(
+            children=dash.html.Div(
+                dash.html.P('Number of binomially distributed data points')), 
+            className="four columns"),
+        dash.html.Div(
+            children=dash.html.Div(
+                dash.html.P('Random seed')), 
+            className="two columns"),
+        dash.html.Div(
+            children=dash.html.Div(
+                dash.html.P('Binomial Proportion (True Beta Distribution Mode)')), 
+            className="four columns"),
+        ], className="row"),
+
+    dash.html.Div([
+        dash.html.Div(
+            children=dash.dcc.Input(
+                id='data_points_n', type='number', 
+                min=3, max=1000, step=1, value=100, 
+                placeholder='Number of Data Points'), 
+            className="four columns"),
+        dash.html.Div(
+            children=dash.dcc.Input(
+                id='random_state', type='number', 
+                min=101, max=1e8, step=1, value=1e4, placeholder='Random Seed'), 
+            className="two columns"),
+        dash.html.Div(
+            children=dash.dcc.Slider(
+                id='binomial_proportion', 
+                min=0, max=1, step=0.01, value=0.5, marks=None, 
+                tooltip={'placement': 'bottom', 'always_visible': True}, 
+                updatemode='drag'), 
+            className="four columns"),
+        ], className="row"),
+
     dash.html.Div([dash.html.H1(id='heading', style={'textAlign': 'center'})]),
 
     dash.html.Div([
@@ -98,10 +163,6 @@ app.layout = dash.html.Div([
 
 # this CSS file placed inside 'assets' directory within the dash app directory
 #app.css.append_css({'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'})
-
-# reportedly an updated way to load an external CSS; not clear whether it works
-#external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-#app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
 @app.callback(
@@ -292,44 +353,6 @@ def plot_beta_02(
     fig.update_layout(title=title, title_x=0.5)
 
     return fig
-
-
-# some useful experimenting/debugging
-"""
-@app.callback(
-    Output('ctx', 'children'),
-    Input('interval-component', 'n_intervals'))
-def show_ctx(n_intervals):
-
-    ctx = dash.callback_context
-    ctx_msg = json.dumps(
-        {'states': ctx.states, 
-         'triggered': ctx.triggered, 
-         'inputs': ctx.inputs, 
-         #'inputs_list': ctx.inputs_list, 
-         #'outputs_list': ctx.outputs_list,
-         #'states_list': ctx.states_list,
-         #'record_timing': ctx.record_timing
-         }, indent=2)
-    return dash.html.Div([dash.html.Pre(ctx_msg)])
-
-
-@app.callback(
-    Output('memory', 'data'),
-    Input('interval-component', 'n_intervals'),
-    Input('beta_parameter_alpha', 'value'),
-    State('memory', 'data'))
-def show_ctx(n_intervals, alpha1, alpha2):
-    return alpha1
-
-
-@app.callback(
-    Output('st', 'children'),
-    Input('memory', 'data'))
-def show_ctx(memory_data):
-    return memory_data
-"""
-
 
 
 if __name__ == '__main__':
