@@ -1,43 +1,27 @@
 #! usr/bin/env python3
 
+import json
 import numpy as np
 from scipy.stats import beta
 from scipy.stats import binom
 
 import plotly.graph_objects as go
 import dash
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
+from dash_daq import BooleanSwitch
 
 
-def generate_binomial_data() -> tuple[float, np.ndarray]:
+def generate_binomial_data(
+    true_beta_mode: float, data_points_n: int, 
+    random_state: int) -> np.ndarray:
     """
     Generates a sample of binomial data
     """
 
-    p = 0.5
-    binomial_sample = binom.rvs(1, p, size=100, random_state=13833)
+    binomial_sample = binom.rvs(
+        1, true_beta_mode, size=data_points_n, random_state=random_state)
 
-    return p, binomial_sample  
-
-
-def read_beta_priors() -> tuple:
-
-    return 5, 2
-
-
-def calculate_beta_param_series() -> list[tuple[int | float]]:
-
-    _, binomial_sample = generate_binomial_data()
-    beta_params = read_beta_priors()
-    alpha_param_sums = binomial_sample.cumsum() 
-    beta_param_sums = range(len(alpha_param_sums)) - alpha_param_sums + 1
-    beta_param_series = [
-        (beta_params[0] + alpha_param_sums[i], 
-         beta_params[1] + beta_param_sums[i]) 
-        for i in range(len(binomial_sample))]
-    beta_param_series = [beta_params] + beta_param_series
-
-    return beta_param_series
+    return binomial_sample  
 
 
 def beta_statistical_attributes() -> tuple[np.ndarray, float, int]:
@@ -51,30 +35,65 @@ def beta_statistical_attributes() -> tuple[np.ndarray, float, int]:
     return x, threshold, idx50 
 
 
+def calculate_beta_parameter_series(
+    beta_parameter_alpha: float, 
+    beta_parameter_beta: float, 
+    binomial_sample: np.ndarray) -> list[tuple[float, float]]:
+
+    alpha_param_sums = binomial_sample.cumsum() 
+    beta_param_sums = range(len(alpha_param_sums)) - alpha_param_sums + 1
+    beta_param_series = [
+        (beta_parameter_alpha + alpha_param_sums[i], 
+         beta_parameter_beta + beta_param_sums[i]) 
+        for i in range(len(binomial_sample))]
+    beta_param_series = (
+        [(beta_parameter_alpha, beta_parameter_beta)] + beta_param_series)
+
+    return beta_param_series
+
+
 app = dash.Dash()
 
 # layout from:  https://community.plotly.com/t/two-graphs-side-by-side/5312/2
 app.layout = dash.html.Div([
 
+    BooleanSwitch(id='pause-toggle', on=True, label='Play Animation'),
+    dash.html.Div(dash.html.P('Animation Update Frequency (sec)')),
+    dash.dcc.Slider(
+        id='update-frequency', min=0.25, max=10, step=0.25, value=1,
+        marks={0.25: '0.25', 0.5: '0.5', 1: '1', 2: '2', 5: '5', 10: '10'}, 
+        tooltip={'placement': 'bottom', 'always_visible': True}, 
+        updatemode='drag'),
+    dash.html.Button(children='Restart', id='interval_reset', n_clicks=0),
+    dash.html.Div(dash.html.P('Binomial proportion / true beta mode')),
+    dash.dcc.Slider(id='binomial_proportion', min=0, max=1, step=0.01, value=0.5, marks=None, tooltip={'placement': 'bottom', 'always_visible': True}, updatemode='drag'),
+    dash.html.Div(dash.html.P('Number of binomially distributed data points')),
+    dash.dcc.Input(id='data_points_n', type='number', min=3, max=1000, step=1, value=100, placeholder='Number of Data Points'),
+    dash.html.Div(dash.html.P('Random seed')),
+    dash.dcc.Input(id='random_state', type='number', min=101, max=1e8, step=1, value=1e4, placeholder='Random Seed'),
+    dash.html.Div(dash.html.P('Beta parameter alpha starting value (prior)')),
+    dash.dcc.Input(id='beta_parameter_alpha', type='number', min=1.01, max=500, step=0.01, value=2, placeholder='Alpha'),
+    dash.html.Div(dash.html.P('Beta parameter beta starting value (prior)')),
+    dash.dcc.Input(id='beta_parameter_beta', type='number', min=1.01, max=500, step=0.01, value=2, placeholder='Beta'),
+    #dash.html.Div(id='ctx'),
+    #dash.dcc.Store(id='memory'),
+    #dash.html.Div(id='st'),
     dash.html.Div([dash.html.H1(id='heading', style={'textAlign': 'center'})]),
-
-    # add some extra space between title and elements below it
-    #dash.html.Div([dash.html.H1(id='placeholder', style={'color': 'white'})]),
 
     dash.html.Div([
         dash.html.Div(
             children=[dash.dcc.Graph(
                 id='beta_plot_01', 
-                style={'width': '80vh', 'height': '80vh'})], 
+                style={'width': '80vh', 'height': '60vh'})], 
             className="four columns"),
         dash.html.Div(
             children=[dash.dcc.Graph(
                 id='beta_plot_02', 
-                style={'width': '80vh', 'height': '80vh'})], 
+                style={'width': '80vh', 'height': '60vh'})], 
             className="offset-by-two four columns"),
     ], className="row"),
 
-    dash.dcc.Interval(id='interval-component', interval=500, n_intervals=0)
+    dash.dcc.Interval(id='interval-component', interval=1_000, n_intervals=0, disabled=False)
 ])
 
 # this CSS file placed inside 'assets' directory within the dash app directory
@@ -86,29 +105,78 @@ app.layout = dash.html.Div([
 
 
 @app.callback(
+    Output('interval-component', 'disabled'),
+    Input('pause-toggle', 'on'))
+def pause_animation(enabled: bool) -> bool:
+    return not enabled
+
+
+@app.callback(
+    Output('interval-component', 'interval'),
+    Input('update-frequency', 'value'))
+def animation_frequency(value: float) -> float:
+    return value * 1000
+
+
+@app.callback(
+    Output('interval-component', 'n_intervals'),
+    [Input('interval_reset', 'n_clicks'),
+     Input('interval-component', 'n_intervals')],
+    State('interval_reset', 'value'))
+def reset_interval(n_clicks, n_intervals, value) -> int:
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    if 'interval_reset' in changed_id:
+        return 0
+    else:
+        return n_intervals
+
+
+@app.callback(
     Output('heading', 'children'),
-    Input('interval-component', 'n_intervals'))
-def overall_heading(n_intervals: int):
-    beta_param_series = calculate_beta_param_series()
-    loop_len = min(n_intervals+1, len(beta_param_series))
-    beta_params = beta_param_series[loop_len-1]
-    title = f'Alpha = {beta_params[0]}, Beta = {beta_params[1]}'
+    [Input('interval-component', 'n_intervals'),
+     Input('beta_parameter_alpha', 'value'), 
+     Input('beta_parameter_beta', 'value'),
+     Input('binomial_proportion', 'value'),
+     Input('data_points_n', 'value'),
+     Input('random_state', 'value')])
+def overall_heading(
+    n_intervals: int, beta_parameter_alpha: float, 
+    beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
+    random_state: int) -> go.Figure:
+
+    binomial_sample = generate_binomial_data(
+        true_beta_mode, data_points_n, random_state)
+    beta_parameter_series = calculate_beta_parameter_series(
+        beta_parameter_alpha, beta_parameter_beta, binomial_sample)
+    loop_len = min(n_intervals+1, len(beta_parameter_series))
+    beta_parameters = beta_parameter_series[loop_len-1]
+    title = f'Alpha = {beta_parameters[0]}, Beta = {beta_parameters[1]}'
     return title
 
 
 @app.callback(
     Output('beta_plot_01', 'figure'),
-    Input('interval-component', 'n_intervals'))
-def plot_beta_01(n_intervals: int):
+    [Input('interval-component', 'n_intervals'),
+     Input('beta_parameter_alpha', 'value'), 
+     Input('beta_parameter_beta', 'value'),
+     Input('binomial_proportion', 'value'),
+     Input('data_points_n', 'value'),
+     Input('random_state', 'value')])
+def plot_beta_01(
+    n_intervals: int, beta_parameter_alpha: float, 
+    beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
+    random_state: int) -> go.Figure:
 
-    true_beta_mode, binomial_sample = generate_binomial_data()
-    beta_param_series = calculate_beta_param_series()
+    binomial_sample = generate_binomial_data(
+        true_beta_mode, data_points_n, random_state)
+    beta_param_series = calculate_beta_parameter_series(
+        beta_parameter_alpha, beta_parameter_beta, binomial_sample)
     x, _, _ = beta_statistical_attributes()
 
     layout = go.Layout({
         'template': 'plotly_white',
         'showlegend': False,
-        'font_size': 24})
+        'font_size': 20})
     max_line_width = 5
     trace_color = 'red'
 
@@ -131,9 +199,9 @@ def plot_beta_01(n_intervals: int):
             line_opacity = [1]
 
         # calculate density for each beta distribution
-        beta_param_alpha = beta_param_series[i][0]
-        beta_param_beta = beta_param_series[i][1]
-        y = beta.pdf(x, beta_param_alpha, beta_param_beta)
+        beta_parameter_alpha = beta_param_series[i][0]
+        beta_parameter_beta = beta_param_series[i][1]
+        y = beta.pdf(x, beta_parameter_alpha, beta_parameter_beta)
 
         fig.add_trace(go.Scatter(x=x, y=y, line=line01, opacity=line_opacity[i]))
 
@@ -143,7 +211,10 @@ def plot_beta_01(n_intervals: int):
     elif n_intervals > 0 and binomial_sample[loop_len-2] == 1:
         fig.add_vline(x=1, line_color='blue', line_width=4)
 
-    beta_mode = (beta_param_alpha - 1) / (beta_param_alpha + beta_param_beta - 2)
+    beta_mode = (
+        (beta_parameter_alpha - 1) / 
+        (beta_parameter_alpha + beta_parameter_beta - 2))
+
     fig.add_vline(x=beta_mode, line_color=trace_color)
     beta_mode = round(beta_mode, 2)
     title = f'True mode = {true_beta_mode}<br><span style="color:red">Mode estimate= {beta_mode}</span>'
@@ -159,13 +230,23 @@ def plot_beta_01(n_intervals: int):
 
 @app.callback(
     Output('beta_plot_02', 'figure'),
-    Input('interval-component', 'n_intervals'))
-def plot_beta_02(n_intervals: int):
+    [Input('interval-component', 'n_intervals'),
+     Input('beta_parameter_alpha', 'value'), 
+     Input('beta_parameter_beta', 'value'),
+     Input('binomial_proportion', 'value'),
+     Input('data_points_n', 'value'),
+     Input('random_state', 'value')])
+def plot_beta_02(
+    n_intervals: int, beta_parameter_alpha: float, 
+    beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
+    random_state: int) -> go.Figure:
 
-    true_beta_mode, binomial_sample = generate_binomial_data()
-    beta_param_series = calculate_beta_param_series()
-    loop_len = min(n_intervals+1, len(beta_param_series))
-    beta_params = beta_param_series[loop_len-1]
+    binomial_sample = generate_binomial_data(
+        true_beta_mode, data_points_n, random_state)
+    beta_parameter_series = calculate_beta_parameter_series(
+        beta_parameter_alpha, beta_parameter_beta, binomial_sample)
+    loop_len = min(n_intervals+1, len(beta_parameter_series))
+    beta_parameters = beta_parameter_series[loop_len-1]
 
     x, threshold, idx50 = beta_statistical_attributes()
 
@@ -181,11 +262,11 @@ def plot_beta_02(n_intervals: int):
     layout = go.Layout({
         'template': 'plotly_white',
         'showlegend': False,
-        'font_size': 24})
+        'font_size': 20})
 
-    y = beta.pdf(x, beta_params[0], beta_params[1])
+    y = beta.pdf(x, beta_parameters[0], beta_parameters[1])
 
-    beta_prop0 = beta.cdf(threshold, beta_params[0], beta_params[1])
+    beta_prop0 = beta.cdf(threshold, beta_parameters[0], beta_parameters[1])
     beta_prop1 = 1 - beta_prop0 
     beta_prop_text0 = str(round(beta_prop0, 2))
     beta_prop_text1 = str(round(beta_prop1, 2))
@@ -211,6 +292,44 @@ def plot_beta_02(n_intervals: int):
     fig.update_layout(title=title, title_x=0.5)
 
     return fig
+
+
+# some useful experimenting/debugging
+"""
+@app.callback(
+    Output('ctx', 'children'),
+    Input('interval-component', 'n_intervals'))
+def show_ctx(n_intervals):
+
+    ctx = dash.callback_context
+    ctx_msg = json.dumps(
+        {'states': ctx.states, 
+         'triggered': ctx.triggered, 
+         'inputs': ctx.inputs, 
+         #'inputs_list': ctx.inputs_list, 
+         #'outputs_list': ctx.outputs_list,
+         #'states_list': ctx.states_list,
+         #'record_timing': ctx.record_timing
+         }, indent=2)
+    return dash.html.Div([dash.html.Pre(ctx_msg)])
+
+
+@app.callback(
+    Output('memory', 'data'),
+    Input('interval-component', 'n_intervals'),
+    Input('beta_parameter_alpha', 'value'),
+    State('memory', 'data'))
+def show_ctx(n_intervals, alpha1, alpha2):
+    return alpha1
+
+
+@app.callback(
+    Output('st', 'children'),
+    Input('memory', 'data'))
+def show_ctx(memory_data):
+    return memory_data
+"""
+
 
 
 if __name__ == '__main__':
