@@ -2,4 +2,6 @@ conda create --name web_dashboard pandas numpy scikit-learn scipy matplotlib sea
 
 source activate web_dashboard
 
+pip install dash_daq
+
 conda env export > environment.yml
