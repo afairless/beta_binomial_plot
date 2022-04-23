@@ -24,11 +24,17 @@ def generate_binomial_data(
 
 
 def beta_statistical_attributes() -> tuple[np.ndarray, float, int]:
+    """
+    Defines and returns attributes used for the beta distribution plots
+    """
 
     # the beta distribution is defined over the interval [0, 1]
     x = np.arange(0, 1.01, 0.01)
 
+    # binary decision threshold
     threshold = 0.50
+
+    # index of decision threshold on the 'x' axis range 
     idx50 = int(threshold * len(x))
 
     return x, threshold, idx50 
@@ -38,6 +44,12 @@ def calculate_beta_parameter_series(
     beta_parameter_alpha: float, 
     beta_parameter_beta: float, 
     binomial_sample: np.ndarray) -> list[tuple[float, float]]:
+    """
+    Given the prior beta distribution parameters alpha and beta and a binomially
+        distributed sample, calculate the series of beta parameters for each
+        update of the beta distribution based on each successive item in the 
+        binomial sample
+    """
 
     alpha_param_sums = binomial_sample.cumsum() 
     beta_param_sums = range(len(alpha_param_sums)) - alpha_param_sums + 1
@@ -51,6 +63,7 @@ def calculate_beta_parameter_series(
     return beta_param_series
 
 
+# vertical white space between rows of input widgets
 padding_space = "15px"
 
 app = dash.Dash()
@@ -175,6 +188,10 @@ app.layout = dash.html.Div([
     Output('interval-component', 'disabled'),
     Input('pause-toggle', 'on'))
 def pause_animation(enabled: bool) -> bool:
+    """
+    Boolean user choice of whether to play or pause the animation of updating 
+        beta distributions
+    """
     return not enabled
 
 
@@ -182,6 +199,10 @@ def pause_animation(enabled: bool) -> bool:
     Output('interval-component', 'interval'),
     Input('update-frequency', 'value'))
 def animation_frequency(value: float) -> float:
+    """
+    User choice of interval specifying how often the animation should be updated
+    User chooses value in seconds, which is converted to milliseconds
+    """
     return value * 1000
 
 
@@ -191,6 +212,9 @@ def animation_frequency(value: float) -> float:
      Input('interval-component', 'n_intervals')],
     State('interval_reset', 'value'))
 def reset_interval(n_clicks, n_intervals, value) -> int:
+    """
+    User choice to restart animation from the start of the beta update sequence
+    """
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     if 'interval_reset' in changed_id:
         return 0
@@ -210,6 +234,9 @@ def overall_heading(
     n_intervals: int, beta_parameter_alpha: float, 
     beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
     random_state: int) -> go.Figure:
+    """
+    Displays beta distribution parameters alpha and beta of most recent update
+    """
 
     binomial_sample = generate_binomial_data(
         true_beta_mode, data_points_n, random_state)
@@ -233,6 +260,15 @@ def plot_beta_01(
     n_intervals: int, beta_parameter_alpha: float, 
     beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
     random_state: int) -> go.Figure:
+    """
+    Plots sequence of beta distribution updates with more recent distributions
+        shown with thicker and more opaque curves
+    Specifies the true, user-specified proportion of the binomial distribution
+        as well as the most recent beta distribution's beta estimate (i.e., the
+        mode of the distribution) of that proportion
+    Each binomial sample update (a 'zero' or a 'one') is displayed as a vertical
+        line at the appropriate value on the x-axis
+    """
 
     binomial_sample = generate_binomial_data(
         true_beta_mode, data_points_n, random_state)
@@ -307,6 +343,14 @@ def plot_beta_02(
     n_intervals: int, beta_parameter_alpha: float, 
     beta_parameter_beta: float, true_beta_mode: float, data_points_n: int, 
     random_state: int) -> go.Figure:
+    """
+    Plots most recent beta distribution update with a division marked by the
+        decision threshold
+    Specifies the proportions of the areas under the beta distribution curve on 
+        each side of the decision threshold
+    Each binomial sample update (a 'zero' or a 'one') is displayed as a vertical
+        line at the appropriate value on the x-axis
+    """
 
     binomial_sample = generate_binomial_data(
         true_beta_mode, data_points_n, random_state)
@@ -362,4 +406,4 @@ def plot_beta_02(
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, use_reloader=True)
+    app.run_server(debug=False, use_reloader=True)
