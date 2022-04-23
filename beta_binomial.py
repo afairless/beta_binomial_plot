@@ -17,6 +17,12 @@ def generate_binomial_data(
     Generates a sample of binomial data
     """
 
+    # if user provides no input values, assign default value
+    if not data_points_n:
+        data_points_n = 100
+    if not random_state:
+        random_state = 2424313
+
     binomial_sample = binom.rvs(
         1, true_beta_mode, size=data_points_n, random_state=random_state)
 
@@ -50,6 +56,12 @@ def calculate_beta_parameter_series(
         update of the beta distribution based on each successive item in the 
         binomial sample
     """
+
+    # if user provides no input values, assign default value
+    if not beta_parameter_alpha:
+        beta_parameter_alpha = 2
+    if not beta_parameter_beta:
+        beta_parameter_beta = 2
 
     alpha_param_sums = binomial_sample.cumsum() 
     beta_param_sums = range(len(alpha_param_sums)) - alpha_param_sums + 1
