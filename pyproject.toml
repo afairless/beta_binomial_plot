@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "beta-binomial-app"
+version = "0.1.0"
+description = "Animate Bayesian updating of beta-binomial model"
+authors = ["Andrew Fairless"]
+readme = "README.md"
+packages = [{include = "beta_binomial_app"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+numpy = "^1.24.1"
+scipy = "^1.10.0"
+plotly = "^5.13.0"
+dash = "^2.8.1"
+dash-daq = "^0.5.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
