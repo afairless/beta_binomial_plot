@@ -418,4 +418,9 @@ def plot_beta_02(
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, use_reloader=True)
+
+    # for development
+    #app.run_server(debug=True, use_reloader=True)
+
+    # for production
+    app.run_server(host='0.0.0.0', port=8050, debug=True)
